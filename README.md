@@ -10,3 +10,4 @@ be derived for a variety of signal detection problems. In a series of numerical 
 are compared to traditional detectors, such as the locally most powerful detector and the generalized likelihood
 ratio test detector.
 
+![image](https://user-images.githubusercontent.com/72392859/119236953-ef2ef600-bb42-11eb-9a60-6c7d3fc2aba5.png)
