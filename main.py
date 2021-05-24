@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 from scipy.ndimage.filters import convolve
-from dbfread import DBF
+# from dbfread import DBF
 import os
 import imageio
 from functions import *
@@ -82,18 +82,16 @@ def simulate(**model_dict):
                     NT_hist, WT_hist, bins = histogram_by_alg(HSI, R, t, m, **model_dict)
                     TPR_list, FPR_list = calculate_TPR_FPR(NT_hist, WT_hist, bins)
                     auc = getAUC(TPR_list, FPR_list)
-                    string = "{:.5f}".format(auc)
+                    string = "{:.4f}".format(auc[0])
                     string = algorithm + "- dof{} | AUC = ".format(dof) + string
                     ax.plot(FPR_list, TPR_list, label=string)
                 model_dict["degrees_of_freedom"] = dofs
             else:
                 NT_hist, WT_hist, bins = histogram_by_alg(HSI, R, t, m, **model_dict)
                 TPR_list, FPR_list = calculate_TPR_FPR(NT_hist, WT_hist, bins)
-                auc = getAUC(TPR_list, FPR_list)
-                string = "{:.3f}".format(auc)
-                string = algorithm + " | AUC = " + string
+                string = algorithm
                 ax.plot(FPR_list, TPR_list, label=string)
-        ax.set_xlim([0, 0.2])
+        ax.set_xlim([0, 0.1])
         ax.grid()
         ax.legend()
         string = "a/a_0 = " + "{:.2f}".format(ratio)
@@ -119,6 +117,7 @@ def simulate(**model_dict):
                 # Plotting  ROC curve
                 TPR_list, FPR_list = calculate_TPR_FPR(NT_hist, WT_hist, bins)
                 auc = getAUC(TPR_list, FPR_list)
+
                 axe2.plot(FPR_list, TPR_list, label=string + "AUC = " + "{:.5f}".format(auc))
         else:
             NT_hist, WT_hist, bins = histogram_by_alg(HSI, R, t, m, **model_dict)
@@ -128,44 +127,53 @@ def simulate(**model_dict):
             # Plotting  ROC curve
             TPR_list, FPR_list = calculate_TPR_FPR(NT_hist, WT_hist, bins)
             auc = getAUC(TPR_list, FPR_list)
-            axe2.plot(FPR_list, TPR_list, label="AUC = " + "{:.5f}".format(auc))
+            string = "{:.4f}".format(auc[0])
+            string = model_dict["algorithm"] + "\nAUC({}) = ".format(str(0.1)) + string + "\n"
+            string = string + "AUC({}) = ".format(str(0.01)) + "{:.4f}".format(auc[1]) + "\n"
+            string = string + "AUC({}) = ".format(str(0.001)) + "{:.5f}".format(auc[2])
+            axe2.plot(FPR_list, TPR_list, label=string)
 
         axe1.set_yscale('log', nonposy='clip')
         axe1.legend()
         axe1.set_title("histograms")
 
-        axe2.set_xlim([0, 0.1])
+        axe2.set_xlim([0, 0.01])
         # axe2.set_yscale('log')
         axe2.grid()
         axe2.legend()
+        axe2.set_ylabel('TPR', fontsize=16)
+        axe2.set_xlabel('FPR', fontsize=16)
         axe2.set_title("ROC")
         plt.show()
 
-    elif model_dict["simulation_type"] == "roc_dof":
-        algorithms = model_dict["algorithm"]  # assuming list
-        dof = model_dict["degrees_of_freedom"]  # assuming list
+    elif model_dict["simulation_type"] == "Veritas-sigmas":
+        sigmas = model_dict["sigmas"]
+        results = np.zeros((3, len(sigmas)))
+
         fig, ax = plt.subplots()
-        ax.set_xlim([0, 0.2])
-        ax.grid()
-        for v in dof:
-            for algorithm in algorithms:
-                model_dict["algorithm"] = algorithm
-                model_dict["degrees_of_freedom"] = v
-                NT_hist, WT_hist, bins = histogram_by_alg(HSI, R, t, m, **model_dict)
-                TPR_list, FPR_list = calculate_TPR_FPR(NT_hist, WT_hist, bins)
-                auc = getAUC(TPR_list, FPR_list)
-                string = "{:.4f}".format(auc)
-                string = algorithm + ", dof =" + str(v) + "| AUC = " + string
-                ax.plot(FPR_list, TPR_list, label=string)
-        ax.legend()
         string = "a/a_0 = " + "{:.2f}".format(ratio)
-        ax.set_title("ROC Curve assuming diffrent degrre of freedom  \n" + string, fontsize=14)
-        ax.set_ylabel('TPR', fontsize=12)
-        ax.set_xlabel('FPR', fontsize=12)
+        fig.suptitle(model_dict["algorithm"] + " \n" + string)
+        ax.set_xlim([0, 0.01])
+        ax.grid()
+        sigmas = model_dict["sigmas"]
+        for j,n in enumerate(sigmas):
+            model_dict["sigmas"] = n
+            NT_hist, WT_hist, bins = histogram_by_alg(HSI, R, t, m, **model_dict)
+            TPR_list, FPR_list = calculate_TPR_FPR(NT_hist, WT_hist, bins)
+            auc = getAUC(TPR_list, FPR_list)
+            results[:, j] = np.asarray(auc)
+
+        aa = ["AUC(0.1)","AUC(0.01)","AUC(0.001)"]
+        for j,a in enumerate(aa):
+            ax.plot(sigmas, results[j,:], label=a)
+        ax.legend()
+        ax.set_ylabel('AUC', fontsize=12)
+        ax.set_xlabel('n', fontsize=12)
         plt.show()
 
 
-data_location = "C:\\Users\\rambo\Desktop\HyperSpectral-project\\code\\Data\\self_test"
+data_location = os.getcwd() + "\\Data\\self_test"
+
 # algorithms = ["Veritas", "LMP", "Clairvoyant", "GLRT", "AMF", "ACE"]  # "EC_FTMF" ,
 # "Clairvoyant replacement gaussian model"
 # algorithms = ["LMP", "GLRT", "AMF", "ACE", "RX", "EC_FTMF",
@@ -175,9 +183,16 @@ data_location = "C:\\Users\\rambo\Desktop\HyperSpectral-project\\code\\Data\\sel
 #               "Veritas additive multivariate-t model",
 #               "Veritas replacement gaussian model",
 #               "Veritas replacement multivariate-t model"]
-algorithms = [ "ACE","Veritas additive multivariate-t model",
-              "Clairvoyant additive multivariate-t model",
-              ]
+# algorithms = ["LMP", "GLRT", "AMF", "ACE", "RX", "EC_FTMF",
+#               "Clairvoyant additive multivariate-t model"
+#               "Clairvoyant replacement gaussian model",
+#               "Clairvoyant replacement multivariate-t model",
+#               "Veritas additive multivariate-t model",
+#               "Veritas replacement gaussian model",
+#               "Veritas replacement multivariate-t model"]
+algorithms = ["GLRT", "ACE","Clairvoyant additive multivariate-t model","Veritas additive multivariate-t model",
+"Clairvoyant replacement multivariate-t model","Veritas replacement multivariate-t model"]
+
 #               "Veritas replacement gaussian model",
 #               "Veritas replacement multivariate-t model"]
 #               ]
@@ -189,15 +204,19 @@ dof = [10, 928]
 # V2 - (156, 353) a_0 = 0.031596
 # V3 - (186, 282) a_0 = 0.031731
 
+sigmas = [ j for j in range(20)]
+
 model_dict = {"target_name": "F1",
-              "target_location": (138, 504),
-              "target_strength": 0.03,
+              "target_location": (122, 484),
+              "target_strength": 0.05,
               "data_location": data_location,
-              "algorithm": algorithms,  # ["LMP", "GLRT", "AMF", "ACE", "RX", "Clairvoyant","EC_FTMF", "Veritas"]
+              "algorithm": algorithms,
+              # ["LMP", "GLRT", "AMF", "ACE", "RX", "Clairvoyant","EC_FTMF", "Veritas"]
               "recreate_statistical_model": False,  # false means we load our  pre calculated covariance and mean
               "simulation_type": "plot_all_roc",
-              # "plot_all_roc" , "unknown_target_strength", "histogram_roc","roc_dof"
-              "degrees_of_freedom": dof
+              # "plot_all_roc" , "unknown_target_strength", "histogram_roc","Veritas-sigmas"
+              "degrees_of_freedom": 10,
+              "sigmas": 4
               }
 
 simulate(**model_dict)
@@ -206,22 +225,4 @@ simulate(**model_dict)
 #     model_dict["algorithm"] = alg
 #     simulate(**model_dict)
 
-qqq = 5
 
-# path = model_dict["data_location"] + "\\HyMap"
-# data_ref = envi.open(path + "\\self_test_refl.hdr", path + "\\self_test_refl.img")
-# HSI = np.array(data_ref.load())
-# target = HSI[model_dict["target_location"]]
-
-# M, N, B = HSI.shape
-# X = np.reshape(HSI, (M*N, B))
-# ttt = tdist.fit(HSI)
-
-
-# def getTargetSpectra(targat_name, data_loction):
-#     file_name = targat_name + "_l.txt"
-#     path = data_loction + "\\SPL\\" + targat_name + "\\" + file_name
-#
-#     with open(path) as f:
-#         for line in f:
-#             print(line.strip())

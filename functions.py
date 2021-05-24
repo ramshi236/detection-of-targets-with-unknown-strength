@@ -52,10 +52,12 @@ def calculate_TPR_FPR(NT_hist, WT_hist, bins):
 
 
 def getAUC(TPR_list, FPR_list):
-    threshold = 0.1
-    idx_thresh = np.argmax(np.asarray(FPR_list)> threshold)
-    auc = np.trapz(TPR_list[:idx_thresh], FPR_list[:idx_thresh])
-    auc = (auc - 0.5 * threshold**2)/(threshold - 0.5*threshold**2)
+    thresholds = [0.1, 0.01, 0.001]
+    auc = [0,0,0]
+    for j, thresh in enumerate(thresholds):
+        idx_thresh = np.argmax(np.asarray(FPR_list) > thresh)
+        auc[j] = np.trapz(TPR_list[:idx_thresh], FPR_list[:idx_thresh])
+        auc[j] = (auc[j] - 0.5 * thresh ** 2) / (thresh - 0.5 * thresh ** 2)
     return auc
 
 
@@ -67,7 +69,8 @@ def get_characteristic_ratio(HSI, R, t, m, **model_dict):
         "Veritas replacement gaussian model",
         "Veritas replacement multivariate-t model"]:
         _, _, B = HSI.shape
-        A_t = multi_dot([t - m, R, t - m])  # TODO check how to compute the means in 1D ?
+        mu = getMean(HSI)
+        A_t = multi_dot([t - mu, R, t - mu])
         a_0 = (2 * B + A_t) ** -0.5
         ratio = model_dict["target_strength"] / a_0
         print("a_0 = " + str(a_0))
@@ -121,3 +124,11 @@ def is_tdist(algorithm):
         return True
     else:
         return False
+
+
+def getMean(HSI):
+    # "getting the mean pixel vector for all the HSI"
+    M, N, B = HSI.shape
+    HSI = np.reshape(HSI, (M * N, B))  # each element is B size vector
+    mu = np.sum(HSI, axis=0) / (M * N)
+    return mu
